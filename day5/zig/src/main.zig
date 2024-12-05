@@ -67,10 +67,7 @@ fn mySorter(context: struct { Map(i32, Array(i32)) }, a: i32, b: i32) bool {
 }
 
 pub fn part1(input: []const u8) !void {
-    const result = try init(input);
-    const l_r: Map(i32, Array(i32)) = result.@"0";
-    const inputs: [][]i32 = result.@"1";
-
+    const l_r, const inputs = try init(input);
     var ans: i32 = 0;
 
     for (inputs) |row| {
@@ -83,28 +80,25 @@ pub fn part1(input: []const u8) !void {
     print("Part 1: {} \n", .{ans});
 }
 
-pub fn part2(input: []const u8) !void {
-    const result = try init(input);
-    const l_r: Map(i32, Array(i32)) = result.@"0";
-    const inputs: [][]i32 = result.@"1";
+// pub fn part2(input: []const u8) !void {
+//     const l_r, const inputs = try init(input);
+//     var ans: i32 = 0;
 
-    var ans: i32 = 0;
+//     for (inputs) |row| {
+//         const check = std.sort.isSorted(i32, row, .{l_r}, mySorter);
+//         if (!check) {
+//             std.mem.sort(i32, row, .{l_r}, mySorter);
+//             ans = ans + row[row.len / 2];
+//         }
+//     }
 
-    for (inputs) |row| {
-        const check = std.sort.isSorted(i32, row, .{l_r}, mySorter);
-        if (!check) {
-            std.mem.sort(i32, row, .{l_r}, mySorter);
-            ans = ans + row[row.len / 2];
-        }
-    }
-
-    print("Part 2: {} \n", .{ans});
-}
+//     print("Part 2: {} \n", .{ans});
+// }
 
 pub fn main() !void {
     const file_path = "/home/blade/projects/advent/2024/day5/input.txt";
     const input = try std.fs.cwd().readFileAlloc(aa.allocator(), file_path, std.math.maxInt(usize));
 
     try part1(input);
-    try part2(input);
+    // try part2(input);
 }
