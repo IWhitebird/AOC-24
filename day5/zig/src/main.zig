@@ -1,102 +1,108 @@
 const std = @import("std");
 const print = std.debug.print;
 const fs = std.fs;
+const Array = std.ArrayList;
+const Map = std.AutoHashMap;
 
 var aa = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 
-pub fn init(input: []const u8) ![]const []const u8 {
-    var letter_matrix = std.ArrayList([]const u8).init(aa.allocator());
+pub fn init(input: []const u8) !struct { Map(i32, Array(i32)), [][]i32 } {
+    var l_r = Map(i32, Array(i32)).init(aa.allocator());
+    var inputs = Array([]i32).init(aa.allocator());
 
-    var inputIter = std.mem.tokenizeScalar(u8, input, '\n');
+    var inputIter = std.mem.tokenizeScalar(u8, input, '*');
 
-    var line = inputIter.next();
-    while (line) |l| : (line = inputIter.next()) {
-        try letter_matrix.append(l);
+    const rules = inputIter.next() orelse return error.@"Rules not found";
+    const query = inputIter.next() orelse return error.@"Query not found";
+
+    var rulesIter = std.mem.tokenizeScalar(u8, rules, '\n');
+
+    while (rulesIter.next()) |line| {
+        var lineIter = std.mem.tokenizeScalar(u8, line, '|');
+
+        const s1 = lineIter.next() orelse return error.@"s1 not found";
+        const s2 = lineIter.next() orelse return error.@"s2 not found";
+
+        const num1: i32 = try std.fmt.parseInt(i32, s1, 10);
+        const num2: i32 = try std.fmt.parseInt(i32, s2, 10);
+
+        const lr = try l_r.getOrPutValue(num1, Array(i32).init(aa.allocator()));
+
+        try lr.value_ptr.append(num2);
     }
 
-    return try letter_matrix.toOwnedSlice();
+    var inpuIter = std.mem.tokenizeScalar(u8, query, '\n');
+    while (inpuIter.next()) |line| {
+        var lineIter = std.mem.tokenizeScalar(u8, line, ',');
+
+        var row = Array(i32).init(aa.allocator());
+        defer row.deinit();
+
+        while (lineIter.next()) |letter| {
+            const num: i32 = try std.fmt.parseInt(i32, letter, 10);
+            try row.append(num);
+        }
+
+        try inputs.append(try row.toOwnedSlice());
+    }
+
+    return .{ l_r, try inputs.toOwnedSlice() };
 }
 
-pub fn part1(input: []const u8) !void {
-    var sum: usize = 0;
-    const matrix = try init(input);
-    for (matrix, 0..) |line, y| {
-        var oldx: usize = 0;
-        while (std.mem.indexOfScalarPos(u8, line, oldx, 'X')) |x| : (oldx = x + 1) {
-            const sx: i32 = @intCast(x);
-            const sy: i32 = @intCast(y);
+fn mySorter(context: struct { Map(i32, Array(i32)) }, a: i32, b: i32) bool {
+    const l_r: Map(i32, Array(i32)) = context.@"0";
+    const akey = l_r.getKey(a) orelse -1;
 
-            x_mod: for (0..3) |i| {
-                y_mod: for (0..3) |j| {
-                    var valid = false;
-                    for (1..4) |scale| {
-                        const si = @as(i32, @intCast(i)) - 1;
-                        const sj = @as(i32, @intCast(j)) - 1;
-                        const sscale: i32 = @intCast(scale);
+    if (akey != -1) {
+        const akey_arr = l_r.get(akey) orelse Array(i32).init(aa.allocator());
 
-                        const newx = sx + si * sscale;
-                        const newy = sy + sj * sscale;
-
-                        // print(" i = {}, j = {}, scale = {}, oldx = {},oldy = {},newx = {}, newy = {} \n", .{ i, j, scale, sx, sy, newx, newy });
-
-                        if (newx < 0 or newx >= line.len) continue :x_mod;
-                        if (newy < 0 or newy >= matrix.len) continue :y_mod;
-
-                        switch (scale) {
-                            1 => {
-                                if (matrix[@intCast(newy)][@intCast(newx)] != 'M')
-                                    continue :y_mod;
-                            },
-                            2 => {
-                                if (matrix[@intCast(newy)][@intCast(newx)] != 'A')
-                                    continue :y_mod;
-                            },
-                            3 => {
-                                if (matrix[@intCast(newy)][@intCast(newx)] != 'S') {
-                                    continue :y_mod;
-                                } else {
-                                    valid = true;
-                                }
-                            },
-                            else => unreachable,
-                        }
-                    }
-                    if (valid) {
-                        sum += 1;
-                    }
-                }
+        for (akey_arr.items) |val| {
+            if (val == b) {
+                return true;
             }
         }
     }
-    print("Part 1: {}\n", .{sum});
+
+    return false;
+}
+
+pub fn part1(input: []const u8) !void {
+    const result = try init(input);
+    const l_r: Map(i32, Array(i32)) = result.@"0";
+    const inputs: [][]i32 = result.@"1";
+
+    var ans: i32 = 0;
+
+    for (inputs) |row| {
+        const check = std.sort.isSorted(i32, row, .{l_r}, mySorter);
+        if (check) {
+            ans = ans + row[row.len / 2];
+        }
+    }
+
+    print("Part 1: {} \n", .{ans});
 }
 
 pub fn part2(input: []const u8) !void {
-    var sum: usize = 0;
-    const matrix = try init(input);
-    for (matrix, 0..) |line, y| {
-        var oldx: usize = 0;
-        while (std.mem.indexOfScalarPos(u8, line, oldx, 'A')) |x| : (oldx = x + 1) {
-            if (x < 1 or x >= line.len - 1) continue;
-            if (y < 1 or y >= matrix.len - 1) continue;
+    const result = try init(input);
+    const l_r: Map(i32, Array(i32)) = result.@"0";
+    const inputs: [][]i32 = result.@"1";
 
-            const left_up = matrix[y - 1][x - 1];
-            const left_dn = matrix[y + 1][x - 1];
-            const right_up = matrix[y - 1][x + 1];
-            const right_dn = matrix[y + 1][x + 1];
+    var ans: i32 = 0;
 
-            if ((left_up == 'M' and left_dn == 'M' and right_up == 'S' and right_dn == 'S') or
-                (left_up == 'M' and left_dn == 'S' and right_up == 'M' and right_dn == 'S') or
-                (left_up == 'S' and left_dn == 'S' and right_up == 'M' and right_dn == 'M') or
-                (left_up == 'S' and left_dn == 'M' and right_up == 'S' and right_dn == 'M'))
-                sum += 1;
+    for (inputs) |row| {
+        const check = std.sort.isSorted(i32, row, .{l_r}, mySorter);
+        if (!check) {
+            std.mem.sort(i32, row, .{l_r}, mySorter);
+            ans = ans + row[row.len / 2];
         }
     }
-    print("Part 2: {}\n", .{sum});
+
+    print("Part 2: {} \n", .{ans});
 }
 
 pub fn main() !void {
-    const file_path = "/home/blade/projects/advent/2024/day4/input.txt";
+    const file_path = "/home/blade/projects/advent/2024/day5/input.txt";
     const input = try std.fs.cwd().readFileAlloc(aa.allocator(), file_path, std.math.maxInt(usize));
 
     try part1(input);
